@@ -428,14 +428,81 @@ def add_action_update(
 # 5. ADMIN INGESTION
 # ==========================================
 
+from app.services.smart_excel_parser import SmartExcelParser
+from app.services.nice_fetcher import NiceFetcher, NiceFetcherError
+from app.services.seed_manager import SeedManager
+
+
+@router.post("/admin/guidelines/fetch")
+def fetch_guideline_from_nice(
+    payload: dict,
+    db: Session = Depends(deps.get_db)
+):
+    """Admin endpoint to auto-fetch a guideline and all its recommendations directly from NICE."""
+    code = payload.get("code") or payload.get("nice_id")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing guideline code.")
+    try:
+        parsed = NiceFetcher.fetch_guideline(code)
+        guideline = SeedManager.persist_guideline(parsed, db)
+        db.commit()
+        return {
+            "message": f"Successfully fetched '{guideline.name}' ({guideline.nice_id}) from NICE with {len(parsed.recommendations)} recommendations.",
+            "nice_id": guideline.nice_id,
+            "name": guideline.name,
+            "recommendation_count": len(parsed.recommendations),
+        }
+    except NiceFetcherError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching from NICE: {e}")
+
+
 @router.post("/admin/guidelines/upload")
 async def upload_guideline_csv(
-    nice_id: str = Form(...),
-    name: str = Form(...),
+    nice_id: str = Form(None),
+    name: str = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(deps.get_db)
 ):
-    """Admin endpoint to ingest or update a guideline via a clean 2-column CSV."""
+    """Admin endpoint to ingest or update a guideline via raw NICE Excel spreadsheet (.xlsx) or CSV."""
+    content = await file.read()
+    filename = file.filename or ""
+
+    # Check if uploaded file is an Excel file
+    if filename.endswith(".xlsx") or filename.endswith(".xls") or (b"PK\x03\x04" in content[:4]):
+        try:
+            parsed = SmartExcelParser.parse(content, filename=filename)
+            if nice_id:
+                parsed.code = nice_id
+            if name:
+                parsed.title = name
+            guideline = SeedManager.persist_guideline(parsed, db)
+            db.commit()
+            return {
+                "message": f"Successfully processed '{guideline.name}' ({guideline.nice_id}). Ingested {len(parsed.recommendations)} recommendations.",
+                "nice_id": guideline.nice_id,
+                "name": guideline.name,
+                "recommendation_count": len(parsed.recommendations),
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {e}")
+
+    # Fallback / standard CSV parsing
+    if not nice_id or not name:
+        try:
+            parsed = SmartExcelParser.parse(content, filename=filename)
+            guideline = SeedManager.persist_guideline(parsed, db)
+            db.commit()
+            return {
+                "message": f"Successfully processed '{guideline.name}' ({guideline.nice_id}). Ingested {len(parsed.recommendations)} recommendations.",
+                "nice_id": guideline.nice_id,
+                "name": guideline.name,
+                "recommendation_count": len(parsed.recommendations),
+            }
+        except Exception:
+            raise HTTPException(status_code=400, detail="nice_id and name are required for CSV uploads.")
+
     # 1. Get or Create Guideline
     guideline = db.query(Guideline).filter(Guideline.nice_id == nice_id).first()
     if not guideline:
@@ -448,7 +515,6 @@ async def upload_guideline_csv(
         db.commit()
 
     # 2. Parse CSV
-    content = await file.read()
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:

@@ -1,13 +1,49 @@
 import { useState, useEffect } from "react";
-import { UploadCloud, CheckCircle, AlertTriangle } from "lucide-react";
+import { UploadCloud, CheckCircle, AlertTriangle, DownloadCloud, Sparkles, FileSpreadsheet, Globe } from "lucide-react";
 
 export default function AdminUpload() {
+  // Direct NICE Fetch State
+  const [fetchCode, setFetchCode] = useState("");
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState(null);
+
+  // File Upload State
   const [niceId, setNiceId] = useState("");
   const [name, setName] = useState("");
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const handleFetchFromNice = async (e) => {
+    e.preventDefault();
+    if (!fetchCode.trim()) return;
+    setFetchLoading(true);
+    setFetchStatus(null);
+    try {
+      const res = await fetch("http://localhost:8000/api/admin/guidelines/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: fetchCode.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFetchStatus({
+          type: "success",
+          message: data.message || `Successfully imported ${data.name} (${data.nice_id}) with ${data.recommendation_count} recommendations.`,
+        });
+        setFetchCode("");
+      } else {
+        setFetchStatus({
+          type: "error",
+          message: data.detail || "Failed to fetch guideline from NICE.",
+        });
+      }
+    } catch (err) {
+      setFetchStatus({ type: "error", message: "Server connection failed." });
+    }
+    setFetchLoading(false);
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -29,8 +65,14 @@ export default function AdminUpload() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!file || !niceId || !name) {
-      setStatus({ type: "error", message: "Please fill all fields and select a file." });
+    if (!file) {
+      setStatus({ type: "error", message: "Please select an Excel (.xlsx) or CSV file." });
+      return;
+    }
+
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    if (!isExcel && (!niceId || !name)) {
+      setStatus({ type: "error", message: "Guideline Reference and Name are required for CSV uploads." });
       return;
     }
     
@@ -38,8 +80,8 @@ export default function AdminUpload() {
     setStatus(null);
     
     const formData = new FormData();
-    formData.append("nice_id", niceId);
-    formData.append("name", name);
+    if (niceId) formData.append("nice_id", niceId);
+    if (name) formData.append("name", name);
     formData.append("file", file);
 
     try {
@@ -65,38 +107,119 @@ export default function AdminUpload() {
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto h-full overflow-y-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin: Upload Guidance</h1>
+    <div className="p-8 max-w-4xl mx-auto h-full overflow-y-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin: Guidance Management</h1>
         <p className="text-gray-500">
-          Upload a clean CSV containing the raw recommendation text. 
-          If the guideline already exists, it will intelligently append new rules and audit-log changed text.
+          Auto-fetch official guidelines directly from NICE without manual searching, or upload raw NICE Baseline Assessment spreadsheets (.xlsx).
         </p>
       </div>
 
-      <div className="bg-white border rounded-lg shadow-sm p-8">
+      {/* SECTION 1: AUTO-FETCH FROM NICE */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50/40 border border-blue-200 rounded-lg shadow-sm p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-blue-600 text-white rounded-md shadow-sm">
+            <Globe size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900">One-Click Auto-Fetch from NICE</h2>
+              <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">
+                Recommended
+              </span>
+            </div>
+            <p className="text-xs text-gray-600">
+              Enter any NICE guideline code (e.g. <code>NG253</code>, <code>NG28</code>, <code>NG136</code>, <code>NG89</code>). The assistant will automatically fetch official baseline tools or guidance chapters directly from nice.org.uk.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleFetchFromNice} className="space-y-4">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="e.g. NG253 or CG161"
+                value={fetchCode}
+                onChange={(e) => setFetchCode(e.target.value.toUpperCase())}
+                className="w-full border border-gray-300 rounded p-3 text-sm font-semibold tracking-wide uppercase bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={fetchLoading || !fetchCode.trim()}
+              className="bg-blue-600 text-white px-6 py-3 rounded font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap"
+            >
+              <DownloadCloud size={18} />
+              {fetchLoading ? "Fetching from NICE..." : "Fetch Guidance"}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>Quick references:</span>
+            {["NG253", "NG28", "NG136", "NG143", "NG250", "NG89", "NG249"].map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setFetchCode(code)}
+                className="text-blue-600 hover:underline font-medium hover:text-blue-800"
+              >
+                {code}
+              </button>
+            ))}
+          </div>
+
+          {fetchStatus && (
+            <div className={`p-4 rounded text-sm font-medium flex items-center gap-2 border ${
+              fetchStatus.type === 'success' 
+                ? 'bg-green-50 text-green-800 border-green-200' 
+                : 'bg-red-50 text-red-800 border-red-200'
+            }`}>
+              {fetchStatus.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+              {fetchStatus.message}
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* SECTION 2: UPLOAD RAW EXCEL OR CSV */}
+      <div className="bg-white border rounded-lg shadow-sm p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-emerald-600 text-white rounded-md shadow-sm">
+            <FileSpreadsheet size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Upload Spreadsheet or CSV</h2>
+            <p className="text-xs text-gray-500">
+              Upload raw, unmodified NICE Baseline Assessment Tool Excel files (<code>.xlsx</code>) or standard CSVs.
+            </p>
+          </div>
+        </div>
+
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Guideline Reference</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Guideline Reference <span className="text-gray-400 font-normal">(optional for Excel)</span>
+              </label>
               <input 
                 type="text" 
                 placeholder="e.g., NG253" 
                 value={niceId}
                 onChange={e => setNiceId(e.target.value)}
-                className="w-full border rounded p-3 focus:ring-blue-500 focus:border-blue-500" 
-                required 
+                className="w-full border rounded p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500" 
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Guideline Name</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Guideline Name <span className="text-gray-400 font-normal">(optional for Excel)</span>
+              </label>
               <input 
                 type="text" 
                 placeholder="e.g., Suspected sepsis in over 16s" 
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full border rounded p-3 focus:ring-blue-500 focus:border-blue-500" 
-                required 
+                className="w-full border rounded p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500" 
               />
             </div>
           </div>
@@ -105,29 +228,29 @@ export default function AdminUpload() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors ${
-              isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:bg-gray-50'
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-gray-300 hover:bg-gray-50'
             }`}
           >
-            <UploadCloud className={`mx-auto h-12 w-12 mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+            <UploadCloud className={`mx-auto h-10 w-10 mb-3 ${isDragging ? 'text-emerald-500' : 'text-gray-400'}`} />
             <div className="text-sm text-gray-600 mb-2">
-              <label className="cursor-pointer font-bold text-blue-600 hover:text-blue-800">
+              <label className="cursor-pointer font-bold text-emerald-600 hover:text-emerald-800">
                 <span>Click to browse</span>
-                <input type="file" accept=".csv" className="hidden" onChange={e => setFile(e.target.files[0])} />
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => setFile(e.target.files[0])} />
               </label>
-              {" "}or drag and drop your CSV file here.
+              {" "}or drag and drop your file here.
             </div>
             <p className="text-xs text-gray-500">
-              CSV must contain two or three columns: <br/> <strong>Guideline Number</strong>, <strong>Guideline Text</strong>, and optionally <strong>Publish Info</strong> (e.g. '2016, amended 2025')
+              Supports unmodified NICE Baseline Assessment Tool spreadsheets (.xlsx) or CSV files. Automatically extracts recommendation numbers, text, and publication year.
             </p>
             {file && (
-              <div className="mt-4 inline-block bg-blue-50 text-blue-700 px-4 py-2 rounded font-medium text-sm border border-blue-200">
+              <div className="mt-4 inline-block bg-emerald-50 text-emerald-800 px-4 py-2 rounded font-medium text-sm border border-emerald-200">
                 Selected: {file.name}
               </div>
             )}
           </div>
 
-          <div className="pt-4 flex justify-between items-center">
+          <div className="flex justify-between items-center">
             {status ? (
               <div className={`flex items-center gap-2 text-sm font-medium ${status.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
                 {status.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
@@ -138,15 +261,15 @@ export default function AdminUpload() {
             <button 
               type="submit" 
               disabled={loading}
-              className="bg-blue-600 text-white px-8 py-3 rounded font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+              className="bg-emerald-600 text-white px-6 py-2.5 rounded font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
             >
-              {loading ? "Processing Upload..." : "Upload Guidelines"}
+              {loading ? "Processing File..." : "Upload & Ingest"}
             </button>
           </div>
         </form>
       </div>
 
-      {/* SECTION 2: GENERATE ONE-CLICK ACCESS LINKS */}
+      {/* SECTION 3: GENERATE ONE-CLICK ACCESS LINKS */}
       <MagicLinkGenerator />
     </div>
   );
