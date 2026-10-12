@@ -9,6 +9,8 @@ services:
       - ./data:/app/data
     environment:
       - DATABASE_URL=sqlite:////app/data/nice_bat.db
+      # Optional: Explicit base URL for magic links. If unset, automatically detects the IP/domain you use in your browser!
+      # - APP_BASE_URL=http://10.45.2.123:8080
     ports:
       - "8000:8000"
 

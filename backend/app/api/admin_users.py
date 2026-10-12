@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 import jwt
 from passlib.context import CryptContext
 
 from app.models.schema import User, Guideline, GuidelineAssignment, Trust
-from app.api.deps import get_db, get_current_trust_id
+from app.api.deps import get_db, get_current_trust_id, get_app_base_url
 from app.api.auth import SECRET_KEY, ALGORITHM, pwd_context
 
 router = APIRouter(prefix="/admin", tags=["admin_users"])
@@ -138,11 +138,13 @@ def delete_user(
 
 @router.get("/assignments")
 def list_assignments(
+    request: Request,
     db: Session = Depends(get_db),
     trust_id: int = Depends(get_current_trust_id)
 ):
     """List all guideline assignments within the current Trust."""
     assignments = db.query(GuidelineAssignment).filter(GuidelineAssignment.trust_id == trust_id).all()
+    base_url = get_app_base_url(request)
     results = []
     for a in assignments:
         # Pre-generate a fresh 7-day magic link for convenience
@@ -156,7 +158,7 @@ def list_assignments(
             "magic": True
         }
         magic_token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-        magic_link = f"http://localhost:5173/access?token={magic_token}"
+        magic_link = f"{base_url}/access?token={magic_token}"
 
         results.append({
             "id": a.id,
@@ -176,6 +178,7 @@ def list_assignments(
 @router.post("/assignments")
 def create_assignment(
     req: AssignmentCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
     trust_id: int = Depends(get_current_trust_id)
 ):
@@ -222,7 +225,8 @@ def create_assignment(
         "magic": True
     }
     magic_token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-    magic_link = f"http://localhost:5173/access?token={magic_token}"
+    base_url = get_app_base_url(request)
+    magic_link = f"{base_url}/access?token={magic_token}"
 
     return {
         "id": assignment.id,

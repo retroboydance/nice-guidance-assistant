@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import jwt
@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from app.models.schema import User, Guideline
-from app.api.deps import get_db, get_current_trust_id
+from app.api.deps import get_db, get_current_trust_id, get_app_base_url
 
 SECRET_KEY = "super-secret-nhs-key-for-poc"
 ALGORITHM = "HS256"
@@ -57,7 +57,7 @@ def get_users(db: Session = Depends(get_db)):
     return [{"id": u.id, "email": u.email, "name": u.name, "role": u.role} for u in users]
 
 @router.post("/magic-link/generate")
-def generate_magic_link(req: MagicLinkRequest, db: Session = Depends(get_db)):
+def generate_magic_link(req: MagicLinkRequest, request: Request, db: Session = Depends(get_db)):
     target_user = db.query(User).filter(User.id == req.target_user_id).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -72,7 +72,8 @@ def generate_magic_link(req: MagicLinkRequest, db: Session = Depends(get_db)):
         "magic": True
     }
     token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-    link = f"http://localhost:5173/access?token={token}"
+    base_url = get_app_base_url(request)
+    link = f"{base_url}/access?token={token}"
     return {"link": link}
 
 class MagicConsumeRequest(BaseModel):
@@ -119,6 +120,7 @@ class InviteReviewerRequest(BaseModel):
 @router.post("/magic-link/invite")
 def invite_reviewer(
     req: InviteReviewerRequest,
+    request: Request,
     db: Session = Depends(get_db),
     trust_id: int = Depends(get_current_trust_id)
 ):
@@ -156,7 +158,8 @@ def invite_reviewer(
         "magic": True
     }
     token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-    link = f"http://localhost:5173/access?token={token}"
+    base_url = get_app_base_url(request)
+    link = f"{base_url}/access?token={token}"
 
     return {
         "link": link,
