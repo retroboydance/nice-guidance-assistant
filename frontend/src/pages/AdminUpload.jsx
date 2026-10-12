@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UploadCloud, CheckCircle, AlertTriangle } from "lucide-react";
 
 export default function AdminUpload() {
@@ -163,11 +163,13 @@ function MagicLinkGenerator() {
   useEffect(() => {
     fetch("http://localhost:8000/api/auth/users")
       .then(res => res.json())
-      .then(data => setUsers(data));
+      .then(data => setUsers(Array.isArray(data) ? data : []))
+      .catch(() => setUsers([]));
 
     fetch("http://localhost:8000/api/guidelines")
       .then(res => res.json())
-      .then(data => setGuidelines(data));
+      .then(data => setGuidelines(Array.isArray(data) ? data : []))
+      .catch(() => setGuidelines([]));
   }, []);
 
   const handleGenerate = async () => {
@@ -208,7 +210,7 @@ function MagicLinkGenerator() {
             className="w-full border-2 border-gray-300 p-3 bg-white font-medium"
           >
             <option value="">-- Choose User --</option>
-            {users.map(u => (
+            {(users || []).map(u => (
               <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
             ))}
           </select>
@@ -222,7 +224,7 @@ function MagicLinkGenerator() {
             className="w-full border-2 border-gray-300 p-3 bg-white font-medium"
           >
             <option value="">-- Choose Guideline --</option>
-            {guidelines.map(g => (
+            {(guidelines || []).map(g => (
               <option key={g.id} value={g.id}>{g.nice_id}: {g.name}</option>
             ))}
           </select>
