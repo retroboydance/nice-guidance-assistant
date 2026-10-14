@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Search, Download, FileSpreadsheet } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function Report() {
   const { guidelineId } = useParams();
@@ -16,9 +17,10 @@ export default function Report() {
   
   // 1. Fetch the list of all guidelines for the selector
   useEffect(() => {
-    fetch("http://localhost:8000/api/guidelines")
+    apiFetch("/guidelines")
       .then(res => res.json())
-      .then(data => setGuidelines(data));
+      .then(data => setGuidelines(Array.isArray(data) ? data : []))
+      .catch(() => setGuidelines([]));
   }, []);
 
   // 2. Fetch the specific report data when the URL ID changes
@@ -31,8 +33,8 @@ export default function Report() {
     
     setLoading(true);
     Promise.all([
-      fetch(`http://localhost:8000/api/reports/${guidelineId}/compliance`).then(res => res.json()),
-      fetch(`http://localhost:8000/api/guidelines/${guidelineId}`).then(res => res.json())
+      apiFetch(`/reports/${guidelineId}/compliance`).then(res => res.json()),
+      apiFetch(`/guidelines/${guidelineId}`).then(res => res.json())
     ]).then(([reportData, guidelineData]) => {
       if (reportData && !reportData.detail && Array.isArray(reportData.action_plan)) {
         setReport(reportData);
@@ -59,7 +61,7 @@ export default function Report() {
 
   const handleExportCSV = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/reports/${guidelineId}/export/csv`);
+      const res = await apiFetch(`/reports/${guidelineId}/export/csv`);
       if (!res.ok) throw new Error("Failed to export assessment report");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -78,7 +80,7 @@ export default function Report() {
 
   const handleExportActionPlanCSV = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/reports/${guidelineId}/export/action-plan/csv`);
+      const res = await apiFetch(`/reports/${guidelineId}/export/action-plan/csv`);
       if (!res.ok) throw new Error("Failed to export action plan");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

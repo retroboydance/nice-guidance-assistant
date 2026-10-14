@@ -14,6 +14,7 @@ import {
   CheckCircle, 
   AlertTriangle 
 } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function AdminUsers() {
   const [activeTab, setActiveTab] = useState("users"); // "users" or "assignments"
@@ -40,9 +41,9 @@ export default function AdminUsers() {
   const fetchData = async () => {
     try {
       const [usersRes, guidelinesRes, assignmentsRes] = await Promise.all([
-        fetch("http://localhost:8000/api/admin/users"),
-        fetch("http://localhost:8000/api/guidelines"),
-        fetch("http://localhost:8000/api/admin/assignments")
+        apiFetch("/admin/users"),
+        apiFetch("/guidelines"),
+        apiFetch("/admin/assignments")
       ]);
 
       const [usersData, guidelinesData, assignmentsData] = await Promise.all([
@@ -74,9 +75,8 @@ export default function AdminUsers() {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/admin/users", {
+      const res = await apiFetch("/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newUser)
       });
       const data = await res.json();
@@ -97,7 +97,7 @@ export default function AdminUsers() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/users/${user.id}`, {
+      const res = await apiFetch(`/admin/users/${user.id}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to delete user.");
@@ -114,9 +114,8 @@ export default function AdminUsers() {
     if (!showResetModal || !newPassword) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/users/${showResetModal.id}`, {
+      const res = await apiFetch(`/admin/users/${showResetModal.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: newPassword })
       });
       if (!res.ok) throw new Error("Failed to reset password.");
@@ -134,9 +133,8 @@ export default function AdminUsers() {
     if (!selectedUser || !selectedGuideline) return;
 
     try {
-      const res = await fetch("http://localhost:8000/api/admin/assignments", {
+      const res = await apiFetch("/admin/assignments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: parseInt(selectedUser),
           guideline_id: parseInt(selectedGuideline),
@@ -161,7 +159,7 @@ export default function AdminUsers() {
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm("Are you sure you want to remove this assignment?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/assignments/${id}`, {
+      const res = await apiFetch(`/admin/assignments/${id}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to remove assignment.");

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, ShieldCheck, AlertTriangle } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function MagicAccess({ onLogin }) {
   const [searchParams] = useSearchParams();
@@ -18,9 +19,8 @@ export default function MagicAccess({ onLogin }) {
       return;
     }
 
-    fetch("http://localhost:8000/api/auth/magic-link/consume", {
+    apiFetch("/auth/magic-link/consume", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token })
     })
     .then(async res => {

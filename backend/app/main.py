@@ -13,9 +13,10 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-seed guidance library from packaged seed fixtures if empty
+    # Auto-seed guidance library and initial users if empty
     db = SessionLocal()
     try:
+        SeedManager.auto_seed_users_if_empty(db)
         SeedManager.auto_seed_if_empty(db)
     except Exception as e:
         print(f"Warning: Auto-seeding encountered an issue: {e}")

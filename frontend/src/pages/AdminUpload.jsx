@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { UploadCloud, CheckCircle, AlertTriangle, DownloadCloud, Sparkles, FileSpreadsheet, Globe } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function AdminUpload() {
   // Direct NICE Fetch State
@@ -21,9 +22,8 @@ export default function AdminUpload() {
     setFetchLoading(true);
     setFetchStatus(null);
     try {
-      const res = await fetch("http://localhost:8000/api/admin/guidelines/fetch", {
+      const res = await apiFetch("/admin/guidelines/fetch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: fetchCode.trim() }),
       });
       const data = await res.json();
@@ -85,7 +85,7 @@ export default function AdminUpload() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:8000/api/admin/guidelines/upload", {
+      const res = await apiFetch("/admin/guidelines/upload", {
         method: "POST",
         body: formData,
       });
@@ -284,12 +284,12 @@ function MagicLinkGenerator() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/auth/users")
+    apiFetch("/auth/users")
       .then(res => res.json())
       .then(data => setUsers(Array.isArray(data) ? data : []))
       .catch(() => setUsers([]));
 
-    fetch("http://localhost:8000/api/guidelines")
+    apiFetch("/guidelines")
       .then(res => res.json())
       .then(data => setGuidelines(Array.isArray(data) ? data : []))
       .catch(() => setGuidelines([]));
@@ -298,9 +298,8 @@ function MagicLinkGenerator() {
   const handleGenerate = async () => {
     if (!selectedUser || !selectedGuideline) return;
 
-    const res = await fetch("http://localhost:8000/api/auth/magic-link/generate", {
+    const res = await apiFetch("/auth/magic-link/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         target_user_id: parseInt(selectedUser),
         guideline_id: parseInt(selectedGuideline)

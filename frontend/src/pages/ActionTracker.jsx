@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Filter, ChevronDown, ChevronRight, AlertTriangle, Send, Download } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function ActionTracker() {
   const [actions, setActions] = useState([]);
@@ -8,7 +9,7 @@ export default function ActionTracker() {
   const [newUpdates, setNewUpdates] = useState({});
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/actions")
+    apiFetch("/actions")
       .then(res => res.json())
       .then(data => {
         setActions(Array.isArray(data) ? data : []);
@@ -40,9 +41,8 @@ export default function ActionTracker() {
     if (!text) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/assessments/${assessmentId}/updates`, {
+      const res = await apiFetch(`/assessments/${assessmentId}/updates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ update_text: text })
       });
       const savedUpdate = await res.json();
@@ -68,7 +68,7 @@ export default function ActionTracker() {
 
   const handleExportGlobalCSV = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/actions/export/csv");
+      const res = await apiFetch("/actions/export/csv");
       if (!res.ok) throw new Error("Failed to export action tracker");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

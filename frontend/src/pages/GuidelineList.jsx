@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Mail, Copy, Check, ExternalLink, X, Send, Download } from "lucide-react";
+import { apiFetch } from "../api";
 
 export default function GuidelineList() {
   const [guidelines, setGuidelines] = useState([]);
@@ -13,10 +14,15 @@ export default function GuidelineList() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/guidelines")
+    apiFetch("/guidelines")
       .then(res => res.json())
       .then(data => {
-        setGuidelines(data);
+        setGuidelines(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error loading guidelines:", err);
+        setGuidelines([]);
         setLoading(false);
       });
   }, []);
@@ -44,9 +50,8 @@ export default function GuidelineList() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/magic-link/invite", {
+      const res = await apiFetch("/auth/magic-link/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: reviewerEmail.trim(),
           guideline_id: selectedGuideline.id
@@ -75,7 +80,7 @@ export default function GuidelineList() {
 
   const handleQuickExport = async (g) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/reports/${g.id}/export/csv`);
+      const res = await apiFetch(`/reports/${g.id}/export/csv`);
       if (!res.ok) throw new Error("Failed to export assessment report");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

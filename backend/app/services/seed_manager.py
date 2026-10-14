@@ -101,6 +101,48 @@ class SeedManager:
         return False
 
     @classmethod
+    def auto_seed_users_if_empty(cls, db: Session) -> bool:
+        """If the database has no users, creates default demo accounts for LHCH and Papworth."""
+        from app.models.schema import Trust, User
+        from passlib.context import CryptContext
+
+        if db.query(User).count() == 0:
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            trust1 = db.query(Trust).filter_by(name="Liverpool Heart and Chest Hospital").first()
+            if not trust1:
+                trust1 = Trust(name="Liverpool Heart and Chest Hospital", group_name="CPA Group")
+                db.add(trust1)
+                db.flush()
+
+            trust2 = db.query(Trust).filter_by(name="Royal Papworth Hospital").first()
+            if not trust2:
+                trust2 = Trust(name="Royal Papworth Hospital", group_name="CPA Group")
+                db.add(trust2)
+                db.flush()
+
+            admin = User(
+                email="admin@lhch.nhs.uk",
+                name="Clinical Lead (LHCH)",
+                hashed_password=pwd_context.hash("Welcome1!"),
+                role="admin",
+                trust_id=trust1.id,
+            )
+            db.add(admin)
+
+            reviewer = User(
+                email="reviewer@papworth.nhs.uk",
+                name="Audit Nurse (Papworth)",
+                hashed_password=pwd_context.hash("Welcome1!"),
+                role="reviewer",
+                trust_id=trust2.id,
+            )
+            db.add(reviewer)
+            db.commit()
+            logger.info("Auto-seeded default demo users and trusts.")
+            return True
+        return False
+
+    @classmethod
     def import_from_csv(
         cls,
         csv_file_path: str,
